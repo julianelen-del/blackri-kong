@@ -1,0 +1,6 @@
+{
+  "name": "BLACKRI KONG — Barcegamer",
+  "description": "Juego arcade 3D en Buenos Aires: ayudá al vendedor de paltas a esquivar policías, subir por las vigas y derribar a Blackri Kong.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
