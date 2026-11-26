@@ -112,28 +112,28 @@ export function EndModal({ stats, onPlayAgain }: EndModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-20 flex items-center justify-center bg-[#050811]/82 p-4">
-      <div className="max-h-[92dvh] w-full max-w-xl overflow-y-auto rounded-2xl border border-white/15 bg-[#0B111E]/96 shadow-2xl">
+    <div className="fixed inset-0 z-20 flex items-center justify-center bg-[#050811]/82 p-3 sm:p-4">
+      <div className="max-h-[94dvh] w-full max-w-xl overflow-y-auto rounded-2xl border border-white/15 bg-[#0B111E]/96 shadow-2xl">
         {/* Header */}
-        <div className="border-b border-white/10 px-6 py-6 text-center">
-          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-white/5">
+        <div className="border-b border-white/10 px-4 py-4 text-center sm:px-6 sm:py-6">
+          <div className="mx-auto mb-1.5 flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 sm:mb-2 sm:h-12 sm:w-12">
             {stats.won ? (
-              <Trophy className="h-7 w-7 text-lime-400" />
+              <Trophy className="h-6 w-6 text-lime-400 sm:h-7 sm:w-7" />
             ) : (
-              <Skull className="h-7 w-7 text-rose-400" />
+              <Skull className="h-6 w-6 text-rose-400 sm:h-7 sm:w-7" />
             )}
           </div>
-          <p className="text-xs font-bold tracking-[0.2em] text-amber-400 uppercase">
+          <p className="text-[11px] font-bold tracking-[0.2em] text-amber-400 uppercase sm:text-xs">
             BARCEGAMER · BLACKRI KONG
           </p>
           <h2
-            className={`mt-1 font-display text-5xl font-extrabold tracking-tight ${
+            className={`mt-1 font-display text-4xl font-extrabold tracking-tight sm:text-5xl ${
               stats.won ? 'text-lime-400' : 'text-rose-400'
             }`}
           >
             {stats.won ? '¡GANASTE!' : 'FIN DEL JUEGO'}
           </h2>
-          <p className="mt-1.5 text-sm text-slate-300">
+          <p className="mt-1 text-xs text-slate-300 sm:mt-1.5 sm:text-sm">
             {stats.won
               ? '¡Llegaste a la plataforma superior y derribaste a Blackri Kong con un paltazo histórico!'
               : 'Los policías frenaron el reparto de paltas. ¡Volvé a intentarlo y llegá a la cima!'}
@@ -142,34 +142,34 @@ export function EndModal({ stats, onPlayAgain }: EndModalProps) {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-2 gap-px bg-white/10 sm:grid-cols-4">
-          <div className="bg-[#0B111E] p-4 text-center">
-            <p className="text-[11px] font-semibold text-slate-400">PUNTAJE</p>
-            <p className="font-mono-tabular mt-1 text-2xl font-bold text-amber-400">
+          <div className="bg-[#0B111E] p-3 text-center sm:p-4">
+            <p className="text-[10px] font-semibold text-slate-400 sm:text-[11px]">PUNTAJE</p>
+            <p className="font-mono-tabular mt-0.5 text-xl font-bold text-amber-400 sm:mt-1 sm:text-2xl">
               {stats.score.toLocaleString('es-AR')}
             </p>
           </div>
-          <div className="bg-[#0B111E] p-4 text-center">
-            <p className="text-[11px] font-semibold text-slate-400">TIEMPO</p>
-            <p className="font-mono-tabular mt-1 text-2xl font-bold text-white">
+          <div className="bg-[#0B111E] p-3 text-center sm:p-4">
+            <p className="text-[10px] font-semibold text-slate-400 sm:text-[11px]">TIEMPO</p>
+            <p className="font-mono-tabular mt-0.5 text-xl font-bold text-white sm:mt-1 sm:text-2xl">
               {timeFormatted}
             </p>
           </div>
-          <div className="bg-[#0B111E] p-4 text-center">
-            <p className="text-[11px] font-semibold text-slate-400">POLICÍAS</p>
-            <p className="font-mono-tabular mt-1 text-2xl font-bold text-lime-400">
+          <div className="bg-[#0B111E] p-3 text-center sm:p-4">
+            <p className="text-[10px] font-semibold text-slate-400 sm:text-[11px]">POLICÍAS</p>
+            <p className="font-mono-tabular mt-0.5 text-xl font-bold text-lime-400 sm:mt-1 sm:text-2xl">
               {stats.policeDefeated}
             </p>
           </div>
-          <div className="bg-[#0B111E] p-4 text-center">
-            <p className="text-[11px] font-semibold text-slate-400">VIDAS</p>
-            <p className="font-mono-tabular mt-1 text-2xl font-bold text-white">
+          <div className="bg-[#0B111E] p-3 text-center sm:p-4">
+            <p className="text-[10px] font-semibold text-slate-400 sm:text-[11px]">VIDAS</p>
+            <p className="font-mono-tabular mt-0.5 text-xl font-bold text-white sm:mt-1 sm:text-2xl">
               {stats.livesRemaining}/3
             </p>
           </div>
         </div>
 
         {/* Social Share Section */}
-        <div className="space-y-4 p-6">
+        <div className="space-y-3 p-4 sm:space-y-4 sm:p-6">
           <div>
             <p className="text-xs font-bold tracking-wider text-slate-400 uppercase">
               Compartir resultado en redes sociales

@@ -7,29 +7,29 @@ interface IntroModalProps {
 
 export function IntroModal({ onStart }: IntroModalProps) {
   return (
-    <div className="fixed inset-0 z-20 flex items-center justify-center bg-[#050811]/62 p-4">
+    <div className="fixed inset-0 z-20 flex items-center justify-center bg-[#050811]/62 p-3 sm:p-4">
       <motion.div
         initial={{ opacity: 0, y: 18, scale: 0.97 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-        className="max-h-[92dvh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-white/15 bg-[#0B111E]/92 shadow-2xl"
+        className="max-h-[94dvh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-white/15 bg-[#0B111E]/92 shadow-2xl"
       >
         {/* Top Banner */}
-        <div className="border-b border-white/10 bg-gradient-to-r from-[#0F172A] via-[#172136] to-[#0F172A] px-6 py-5 text-center sm:px-8">
-          <p className="font-display text-sm font-bold tracking-[0.22em] text-amber-400 uppercase">
+        <div className="border-b border-white/10 bg-gradient-to-r from-[#0F172A] via-[#172136] to-[#0F172A] px-4 py-3.5 text-center sm:px-8 sm:py-5">
+          <p className="font-display text-xs font-bold tracking-[0.22em] text-amber-400 uppercase sm:text-sm">
             BARCEGAMER PRESENTA
           </p>
-          <h1 className="mt-1 font-display text-5xl font-extrabold tracking-tight text-white sm:text-6xl">
+          <h1 className="mt-0.5 font-display text-4xl font-extrabold tracking-tight text-white sm:mt-1 sm:text-6xl">
             BLACKRI KONG
           </h1>
-          <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-slate-300 sm:text-base">
+          <p className="mx-auto mt-1.5 max-w-xl text-xs leading-relaxed text-slate-300 sm:mt-2 sm:text-base">
             En plena noche porteña, Blackri Kong se atrincheró en la cima de la obra y arroja
             policías por las vigas de acero para frenar al vendedor ambulante.
           </p>
         </div>
 
         {/* Content Body */}
-        <div className="grid gap-6 p-6 sm:grid-cols-12 sm:p-7">
+        <div className="grid gap-4 p-4 sm:grid-cols-12 sm:gap-6 sm:p-7">
           {/* Animated Character Visuals */}
           <div className="grid grid-cols-2 gap-3 sm:col-span-5">
             {/* Vendor Card */}
@@ -121,13 +121,13 @@ export function IntroModal({ onStart }: IntroModalProps) {
           </div>
 
           {/* Objective & Controls */}
-          <div className="flex flex-col justify-between gap-5 sm:col-span-7">
-            <div className="space-y-3">
+          <div className="flex flex-col justify-between gap-4 sm:col-span-7 sm:gap-5">
+            <div className="space-y-2.5 sm:space-y-3">
               <div>
-                <h2 className="font-display text-xl font-bold tracking-wide text-white">
+                <h2 className="font-display text-lg font-bold tracking-wide text-white sm:text-xl">
                   OBJETIVO DE LA PARTIDA
                 </h2>
-                <p className="mt-1 text-sm leading-relaxed text-slate-300">
+                <p className="mt-1 text-xs leading-relaxed text-slate-300 sm:text-sm">
                   Trepá por las vigas y escaleras hasta la plataforma más alta con tus{' '}
                   <strong className="text-lime-400">3 vidas</strong>. Saltá por encima de los
                   policías o derribalos lanzando paltas. Cuando llegues a la cima,{' '}
@@ -136,22 +136,22 @@ export function IntroModal({ onStart }: IntroModalProps) {
                 </p>
               </div>
 
-              <div className="border-t border-white/10 pt-3">
-                <h3 className="text-xs font-bold tracking-wider text-slate-400 uppercase">
+              <div className="border-t border-white/10 pt-2.5 sm:pt-3">
+                <h3 className="text-[11px] font-bold tracking-wider text-slate-400 uppercase sm:text-xs">
                   Controles
                 </h3>
-                <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-slate-200">
+                <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-slate-200 sm:mt-2 sm:gap-x-4 sm:gap-y-1.5">
                   <div>
-                    <span className="font-semibold text-amber-300">A / D o ← / →</span> · Correr
+                    <span className="font-semibold text-amber-300">Cruceta / A·D</span> · Correr
                   </div>
                   <div>
-                    <span className="font-semibold text-amber-300">W / S o ↑ / ↓</span> · Escaleras
+                    <span className="font-semibold text-amber-300">↑·↓ / W·S</span> · Escaleras
                   </div>
                   <div>
-                    <span className="font-semibold text-amber-300">Espacio</span> · Saltar
+                    <span className="font-semibold text-amber-300">Saltar / Espacio</span> · Saltar
                   </div>
                   <div>
-                    <span className="font-semibold text-lime-400">F / X / Click</span> · Lanzar Palta
+                    <span className="font-semibold text-lime-400">F / Click / Palta</span> · Lanzar
                   </div>
                 </div>
               </div>
@@ -162,7 +162,7 @@ export function IntroModal({ onStart }: IntroModalProps) {
               onClick={onStart}
               whileHover={{ scale: 1.015 }}
               whileTap={{ scale: 0.985 }}
-              className="flex w-full items-center justify-center gap-2.5 rounded-xl bg-amber-500 px-6 py-3.5 font-display text-2xl font-extrabold tracking-wide text-slate-950 shadow-lg transition-colors hover:bg-amber-400 focus-visible:outline-2 focus-visible:outline-white"
+              className="flex w-full items-center justify-center gap-2.5 rounded-xl bg-amber-500 px-6 py-3 font-display text-2xl font-extrabold tracking-wide text-slate-950 shadow-lg transition-colors hover:bg-amber-400 focus-visible:outline-2 focus-visible:outline-white sm:py-3.5"
             >
               <Play className="h-6 w-6 fill-current" />
               JUGAR AHORA

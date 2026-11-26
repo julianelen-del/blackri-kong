@@ -1,9 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { EndModal } from './components/EndModal';
-import { GameHUD } from './components/GameHUD';
+import {
+  GameHUD,
+  GamePortraitControlDeck,
+  GamePortraitTopBar,
+} from './components/GameHUD';
 import { IntroModal } from './components/IntroModal';
 import { GameEngine } from './game/GameEngine';
 import type { HudSnapshot, InputState, MatchStats } from './game/types';
+
+function checkIsPortraitMobile(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.innerWidth < 768 && window.innerHeight > window.innerWidth * 1.02;
+}
 
 const INITIAL_HUD: HudSnapshot = {
   phase: 'intro',
@@ -27,6 +36,19 @@ export default function App() {
   const [matchStats, setMatchStats] = useState<MatchStats | null>(null);
   const [muted, setMuted] = useState(false);
   const [webglError, setWebglError] = useState(false);
+  const [isPortraitMobile, setIsPortraitMobile] = useState<boolean>(checkIsPortraitMobile);
+
+  useEffect(() => {
+    const syncOrientation = () => {
+      setIsPortraitMobile(checkIsPortraitMobile());
+    };
+    window.addEventListener('resize', syncOrientation);
+    window.addEventListener('orientationchange', syncOrientation);
+    return () => {
+      window.removeEventListener('resize', syncOrientation);
+      window.removeEventListener('orientationchange', syncOrientation);
+    };
+  }, []);
 
   useEffect(() => {
     const mount = canvasMountRef.current;
@@ -65,9 +87,6 @@ export default function App() {
             if (!e.repeat) engine.setInput({ jumpPressed: true });
             break;
           case 'KeyF':
-          case 'KeyX':
-          case 'KeyJ':
-          case 'Enter':
             if (!e.repeat) engine.setInput({ throwPressed: true });
             break;
           case 'Escape':
@@ -143,14 +162,49 @@ export default function App() {
   );
 
   return (
-    <main className="relative h-screen w-screen overflow-hidden bg-[#070B14]">
-      {/* Dedicated Game Canvas Mount Container */}
-      <div
-        ref={canvasMountRef}
-        onPointerDown={handleCanvasPointerDown}
-        className="h-full w-full touch-none"
-        aria-label="Escenario de Blackri Kong en Buenos Aires"
-      />
+    <main
+      className={`relative h-dvh w-dvw overflow-hidden bg-[#070B14] ${
+        isPortraitMobile ? 'flex flex-col' : ''
+      }`}
+    >
+      {/* Slot 0: Portrait Mobile Top Bar (above canvas so Blackri Kong is never obscured) */}
+      {isPortraitMobile && hud.phase !== 'intro' ? (
+        <GamePortraitTopBar
+          hud={hud}
+          muted={muted}
+          onToggleMute={handleToggleMute}
+          onTogglePause={handleTogglePause}
+          onRestart={handleStart}
+        />
+      ) : null}
+
+      {/* Slot 1: Persistent Game Canvas Mount Container (never unmounts on rotation) */}
+      <div className={isPortraitMobile ? 'relative min-h-0 w-full flex-1' : 'relative h-full w-full'}>
+        <div
+          ref={canvasMountRef}
+          onPointerDown={handleCanvasPointerDown}
+          className="h-full w-full touch-none"
+          aria-label="Escenario de Blackri Kong en Buenos Aires"
+        />
+
+        {/* HUD Overlay (Pause/Bonus/Hints + Landscape/Desktop Bars & Controls) */}
+        {hud.phase !== 'intro' && (
+          <GameHUD
+            hud={hud}
+            muted={muted}
+            isPortraitMobile={isPortraitMobile}
+            onToggleMute={handleToggleMute}
+            onTogglePause={handleTogglePause}
+            onRestart={handleStart}
+            onVirtualInput={handleVirtualInput}
+          />
+        )}
+      </div>
+
+      {/* Slot 2: Portrait Mobile Dedicated Arcade Control Deck (below canvas) */}
+      {isPortraitMobile && hud.phase === 'playing' ? (
+        <GamePortraitControlDeck onVirtualInput={handleVirtualInput} />
+      ) : null}
 
       {webglError && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-[#070B14] p-6 text-center">
@@ -169,18 +223,6 @@ export default function App() {
             </p>
           </div>
         </div>
-      )}
-
-      {/* Semantic HUD Overlay */}
-      {hud.phase !== 'intro' && (
-        <GameHUD
-          hud={hud}
-          muted={muted}
-          onToggleMute={handleToggleMute}
-          onTogglePause={handleTogglePause}
-          onRestart={handleStart}
-          onVirtualInput={handleVirtualInput}
-        />
       )}
 
       {/* Opening Title Plaque */}

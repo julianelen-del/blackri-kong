@@ -112,8 +112,13 @@ export class GameEngine {
   private idleTimer = 0;
   private squashX = 1;
   private squashY = 1;
+  private lastWalkStep = 0;
 
-  // Gorilla state
+  // Gorilla state (patrols horizontally across Floor 4)
+  private gorillaX = GORILLA_POS.x;
+  private gorillaY = GORILLA_POS.y;
+  private gorillaDir: -1 | 1 = -1;
+  private gorillaWalkPhase = 0;
   private gorillaThrowClock = 1.1;
   private gorillaWindup = 0;
   private gorillaThrowCount = 0;
@@ -132,6 +137,10 @@ export class GameEngine {
   // Screen shake
   private shakeTimer = 0;
   private shakeIntensity = 0;
+
+  // Responsive portrait camera
+  private camX = 0;
+  private resizeObserver: ResizeObserver | null = null;
 
   // Loop
   private rafId = 0;
@@ -180,6 +189,11 @@ export class GameEngine {
 
     this.handleResize = this.handleResize.bind(this);
     window.addEventListener('resize', this.handleResize);
+    window.addEventListener('orientationchange', this.handleResize);
+    if (typeof ResizeObserver !== 'undefined') {
+      this.resizeObserver = new ResizeObserver(() => this.handleResize());
+      this.resizeObserver.observe(container);
+    }
 
     this.pushHud(true);
     this.lastTime = performance.now();
@@ -302,7 +316,13 @@ export class GameEngine {
     this.idleTimer = 0;
     this.squashX = 1;
     this.squashY = 1;
+    this.lastWalkStep = 0;
+    this.camX = 0;
 
+    this.gorillaX = GORILLA_POS.x;
+    this.gorillaY = GORILLA_POS.y;
+    this.gorillaDir = -1;
+    this.gorillaWalkPhase = 0;
     this.gorillaThrowClock = 1.0;
     this.gorillaWindup = 0;
     this.gorillaThrowCount = 0;
@@ -374,17 +394,20 @@ export class GameEngine {
 
     this.gorillaThrowCount++;
     const isCar = this.gorillaThrowCount % 3 === 0;
+    const throwDir: -1 | 1 =
+      this.phase === 'playing' && this.pLevel === 4 && this.px > this.gorillaX + 35 ? 1 : -1;
 
     slot.active = true;
     slot.kind = isCar ? 'car' : 'officer';
-    slot.x = GORILLA_POS.x - 48;
-    slot.y = GORILLA_POS.y - (isCar ? 24 : 54);
+    slot.x = this.gorillaX + throwDir * 48;
+    slot.y = this.gorillaY - (isCar ? 24 : 54);
     const highThrow = !isCar && Math.random() < 0.35;
-    slot.vx = isCar
-      ? -(275 + Math.random() * 55)
+    const speedMag = isCar
+      ? 275 + Math.random() * 55
       : highThrow
-        ? -(310 + Math.random() * 80)
-        : -(220 + Math.random() * 65);
+        ? 310 + Math.random() * 80
+        : 220 + Math.random() * 65;
+    slot.vx = throwDir * speedMag;
     slot.vy = isCar ? -140 : highThrow ? -320 : -180;
     slot.level = 4;
     slot.state = 'air';
@@ -393,7 +416,7 @@ export class GameEngine {
     slot.jumpedScored = false;
     slot.walkPhase = Math.random() * Math.PI * 2;
     slot.tumbleAngle = 0;
-    slot.facing = -1;
+    slot.facing = throwDir;
     slot.aggressive = false;
     slot.jumpCooldown = 0.8;
     slot.ignoreLevel = -1;
@@ -559,6 +582,13 @@ export class GameEngine {
 
       if (Math.abs(this.pvx) > 15 && this.pGrounded) {
         this.walkPhase += dt * 15;
+        const stepIdx = Math.floor(this.walkPhase / Math.PI);
+        if (stepIdx !== this.lastWalkStep) {
+          this.lastWalkStep = stepIdx;
+          if (Math.abs(this.pvx) > 120) {
+            this.spawnParticles(this.px - this.pFacing * 10, this.py - 2, '#94A3B8', 2, 75);
+          }
+        }
       }
     }
 
@@ -571,13 +601,28 @@ export class GameEngine {
       this.gorillaFallX += this.gorillaFallVx * dt;
       this.gorillaFallY += this.gorillaFallVy * dt;
       this.gorillaFallRot += dt * 3.4;
-      if (this.gorillaFallY > GORILLA_POS.y) {
-        this.gorillaFallY = GORILLA_POS.y;
+      if (this.gorillaFallY > this.gorillaY) {
+        this.gorillaFallY = this.gorillaY;
         this.gorillaFallVy = -Math.abs(this.gorillaFallVy) * 0.35;
         this.gorillaFallVx *= 0.7;
       }
       this.gorillaFallX = Math.min(1195, this.gorillaFallX);
       return;
+    }
+
+    // Horizontal patrol across the top girder (pauses briefly while winding up a throw)
+    if (this.gorillaWindup <= 0) {
+      const patrolSpeed = this.pLevel >= 3 ? 98 : 78;
+      this.gorillaX += this.gorillaDir * patrolSpeed * dt;
+      if (this.gorillaX <= 490) {
+        this.gorillaX = 490;
+        this.gorillaDir = 1;
+      } else if (this.gorillaX >= 1045) {
+        this.gorillaX = 1045;
+        this.gorillaDir = -1;
+      }
+      this.gorillaY = getPlatformY(4, this.gorillaX) ?? GORILLA_POS.y;
+      this.gorillaWalkPhase += dt * 7.8;
     }
 
     const interval = Math.max(1.75, 2.55 - this.pLevel * 0.16);
@@ -882,9 +927,9 @@ export class GameEngine {
 
       // Hit Blackri Kong!
       if (this.phase === 'playing' && !this.gorillaDefeated) {
-        const gdx = a.x - GORILLA_POS.x;
-        const gdy = a.y - (GORILLA_POS.y - 62);
-        if (gdx * gdx + gdy * gdy < 62 * 62) {
+        const gdx = a.x - this.gorillaX;
+        const gdy = a.y - (this.gorillaY - 62);
+        if (gdx * gdx + gdy * gdy < 64 * 64) {
           a.active = false;
           if (this.pLevel === 4) {
             this.triggerVictory();
@@ -900,6 +945,8 @@ export class GameEngine {
 
   private triggerVictory(): void {
     this.gorillaDefeated = true;
+    this.gorillaFallX = this.gorillaX;
+    this.gorillaFallY = this.gorillaY;
     this.gorillaFallVx = 240;
     this.gorillaFallVy = -340;
     this.victoryCelebrateTimer = 1.75;
@@ -916,9 +963,9 @@ export class GameEngine {
       }
     }
 
-    this.spawnParticles(GORILLA_POS.x, GORILLA_POS.y - 60, '#84CC16', 16, 360);
-    this.spawnParticles(GORILLA_POS.x, GORILLA_POS.y - 70, '#38BDF8', 14, 380);
-    this.spawnParticles(GORILLA_POS.x, GORILLA_POS.y - 70, '#FACC15', 14, 380);
+    this.spawnParticles(this.gorillaX, this.gorillaY - 60, '#84CC16', 16, 360);
+    this.spawnParticles(this.gorillaX, this.gorillaY - 70, '#38BDF8', 14, 380);
+    this.spawnParticles(this.gorillaX, this.gorillaY - 70, '#FACC15', 14, 380);
     this.showBonus('¡BLACKRI KONG DERROTADO!');
     this.pushHud(true);
   }
@@ -949,11 +996,11 @@ export class GameEngine {
   }
 
   private drawGorilla(ctx: CanvasRenderingContext2D): void {
-    const gx = this.gorillaDefeated ? this.gorillaFallX : GORILLA_POS.x;
-    const gy = this.gorillaDefeated ? this.gorillaFallY : GORILLA_POS.y;
+    const gx = this.gorillaDefeated ? this.gorillaFallX : this.gorillaX;
+    const gy = this.gorillaDefeated ? this.gorillaFallY : this.gorillaY;
     const sprite = this.assets?.gorillaSprite;
 
-    this.drawShadow(ctx, gx, GORILLA_POS.y, 48);
+    this.drawShadow(ctx, gx, this.gorillaY, 48);
 
     ctx.save();
     ctx.translate(gx, gy);
@@ -976,11 +1023,15 @@ export class GameEngine {
       ctx.arc(0, -65, 74, 0, Math.PI * 2);
       ctx.fill();
     } else {
-      const bob = Math.sin(this.globalTime * 4.2);
-      const breatheX = 1 + bob * 0.03;
-      const breatheY = 1 - bob * 0.03;
-      ctx.scale(breatheX, breatheY);
-      ctx.rotate(Math.sin(this.globalTime * 2.1) * 0.035);
+      // Heavy gorilla stride swagger along the top girder
+      const stride = Math.abs(Math.sin(this.gorillaWalkPhase));
+      const bobY = -stride * 5.5;
+      const sway = Math.sin(this.gorillaWalkPhase) * 0.048;
+      const stretchX = 1 + Math.cos(this.gorillaWalkPhase * 2) * 0.025;
+      const stretchY = 1 - Math.cos(this.gorillaWalkPhase * 2) * 0.025;
+      ctx.translate(0, bobY);
+      ctx.rotate(sway + this.gorillaDir * 0.035);
+      ctx.scale(stretchX, stretchY);
     }
 
     if (sprite) {
@@ -994,9 +1045,16 @@ export class GameEngine {
     }
     ctx.restore();
 
-    // Comic Speech Bubble (silent, text-only)
+    // Comic Speech Bubble (silent, text-only; pinned on-screen if zoomed in portrait)
     if (!this.gorillaDefeated && this.gorillaSpeechTimer > 0) {
-      this.drawGorillaSpeechBubble(ctx, gx - 78, gy - 110, this.gorillaSpeechText);
+      const vp = this.getViewportTransform();
+      const viewLeft = vp.camX;
+      const viewRight = vp.camX + vp.viewW;
+      if (gx - 30 > viewRight) {
+        this.drawGorillaSpeechBubble(ctx, viewRight - 22, 82, this.gorillaSpeechText, viewLeft);
+      } else {
+        this.drawGorillaSpeechBubble(ctx, gx - 78, gy - 110, this.gorillaSpeechText, viewLeft);
+      }
     }
   }
 
@@ -1005,16 +1063,19 @@ export class GameEngine {
     bx: number,
     by: number,
     phrase: string,
+    minLeftX = 16,
   ): void {
     const fade = Math.min(1, this.gorillaSpeechTimer * 3, (2.5 - this.gorillaSpeechTimer) * 5 + 0.2);
     ctx.save();
     ctx.globalAlpha = Math.max(0, Math.min(1, fade));
-    ctx.translate(bx, by);
 
     ctx.font = 'bold 21px "Barlow Condensed", Impact, sans-serif';
     const textW = ctx.measureText(phrase).width;
     const boxW = Math.max(150, textW + 34);
     const boxH = 42;
+    const clampedBx = Math.max(minLeftX + boxW + 12, bx);
+    ctx.translate(clampedBx, by);
+
     const boxLeft = -boxW;
     const boxTop = -boxH / 2;
 
@@ -1056,40 +1117,115 @@ export class GameEngine {
       this.drawShadow(ctx, this.px, groundY, 24 * shadowScale);
     }
 
+    const isWalking = this.pGrounded && Math.abs(this.pvx) > 15 && !this.pOnLadder;
     const useFront = Boolean(this.pOnLadder) || (this.pGrounded && Math.abs(this.pvx) < 12 && this.idleTimer > 1.0);
     const sprite = useFront ? this.assets?.vendorFront : this.assets?.vendorSide;
 
     ctx.save();
     ctx.translate(this.px, this.py);
 
-    let bobY = 0;
-    let tilt = 0;
-    if (this.pOnLadder) {
-      tilt = Math.sin(this.climbPhase) * 0.07;
-      bobY = Math.abs(Math.sin(this.climbPhase)) * -3;
-    } else if (!this.pGrounded) {
-      tilt = this.pFacing * 0.06;
-    } else if (Math.abs(this.pvx) > 15) {
-      bobY = -Math.abs(Math.sin(this.walkPhase)) * 6;
-      tilt = this.pFacing * (0.05 + Math.sin(this.walkPhase) * 0.03);
-    } else {
-      // Idle breathing
-      bobY = Math.sin(this.globalTime * 3.5) * -2;
-    }
-
-    if (this.throwAnimTimer > 0) {
-      tilt += this.pFacing * 0.12;
-    }
-
-    ctx.translate(0, bobY);
-    ctx.rotate(tilt);
-    // Keep front-facing sprite unflipped so "PALTAS" never mirrors backwards!
-    ctx.scale((useFront ? 1 : this.pFacing) * this.squashX, this.squashY);
-
     if (sprite) {
       const targetH = 88;
       const targetW = (sprite.width / sprite.height) * targetH;
-      ctx.drawImage(sprite, -targetW / 2, -targetH, targetW, targetH);
+
+      if (isWalking && !useFront) {
+        // Expressive two-leg stride cycle using the original vendor boots + upper body/crate!
+        const stepWave = Math.sin(this.walkPhase);
+        const stepLift = Math.abs(stepWave);
+        const bobY = -stepLift * 5.2;
+        const torsoLean = 0.065 + stepWave * 0.04;
+        const strideSquashX = 1 + Math.cos(this.walkPhase * 2) * 0.035;
+        const strideSquashY = 1 - Math.cos(this.walkPhase * 2) * 0.035;
+        const throwTilt = this.throwAnimTimer > 0 ? 0.14 : 0;
+
+        const splitRatio = 0.78;
+        const syLegs = Math.floor(sprite.height * splitRatio);
+        const shLegs = sprite.height - syLegs;
+        const legsTargetH = targetH * (1 - splitRatio);
+        const upperTargetH = targetH * splitRatio;
+
+        ctx.scale(this.pFacing * this.squashX, this.squashY);
+
+        // Back leg/boot (slightly dimmed for depth)
+        const backOffsetX = -stepWave * 8.5;
+        const backLiftY = -Math.max(0, -Math.cos(this.walkPhase)) * 5.5;
+        ctx.save();
+        ctx.globalAlpha = 0.84;
+        ctx.translate(backOffsetX, -legsTargetH + backLiftY);
+        ctx.rotate(-stepWave * 0.2);
+        ctx.drawImage(
+          sprite,
+          0,
+          syLegs,
+          sprite.width,
+          shLegs,
+          -targetW / 2,
+          0,
+          targetW,
+          legsTargetH,
+        );
+        ctx.restore();
+
+        // Front leg/boot
+        const frontOffsetX = stepWave * 8.5;
+        const frontLiftY = -Math.max(0, Math.cos(this.walkPhase)) * 5.5;
+        ctx.save();
+        ctx.translate(frontOffsetX, -legsTargetH + frontLiftY);
+        ctx.rotate(stepWave * 0.2);
+        ctx.drawImage(
+          sprite,
+          0,
+          syLegs,
+          sprite.width,
+          shLegs,
+          -targetW / 2,
+          0,
+          targetW,
+          legsTargetH,
+        );
+        ctx.restore();
+
+        // Upper body + "PALTAS" crate with bob, forward stride lean & throw lunge
+        ctx.save();
+        ctx.translate(0, bobY - legsTargetH + 2);
+        ctx.rotate(torsoLean + throwTilt);
+        ctx.scale(strideSquashX, strideSquashY);
+        ctx.drawImage(
+          sprite,
+          0,
+          0,
+          sprite.width,
+          syLegs + 4,
+          -targetW / 2,
+          -upperTargetH,
+          targetW,
+          upperTargetH + 2,
+        );
+        ctx.restore();
+      } else {
+        let bobY = 0;
+        let tilt = 0;
+        if (this.pOnLadder) {
+          tilt = Math.sin(this.climbPhase) * 0.08;
+          bobY = Math.abs(Math.sin(this.climbPhase)) * -3.5;
+        } else if (!this.pGrounded) {
+          tilt = this.pFacing * 0.07;
+        } else {
+          // Idle breathing
+          bobY = Math.sin(this.globalTime * 3.5) * -2;
+        }
+
+        if (this.throwAnimTimer > 0) {
+          tilt += this.pFacing * 0.14;
+          bobY -= 2.5;
+        }
+
+        ctx.translate(0, bobY);
+        ctx.rotate(tilt);
+        // Keep front-facing sprite unflipped so "PALTAS" never mirrors backwards!
+        ctx.scale((useFront ? 1 : this.pFacing) * this.squashX, this.squashY);
+        ctx.drawImage(sprite, -targetW / 2, -targetH, targetW, targetH);
+      }
     } else {
       ctx.fillStyle = '#22C55E';
       ctx.fillRect(-20, -82, 40, 82);
@@ -1394,19 +1530,70 @@ export class GameEngine {
     ctx.globalAlpha = 1;
   }
 
+  private getViewportTransform(): {
+    scale: number;
+    offsetX: number;
+    offsetY: number;
+    viewW: number;
+    camX: number;
+  } {
+    const cw = this.canvas.width;
+    const ch = this.canvas.height;
+    const fitScale = Math.min(cw / CANVAS_W, ch / CANVAS_H);
+    const isPortrait = ch > cw * 1.02;
+    const portraitScale = Math.min(ch / CANVAS_H, cw / 590);
+    const scale = isPortrait ? Math.max(fitScale, portraitScale) : fitScale;
+    const viewW = cw / Math.max(0.001, scale);
+
+    let camX = 0;
+    let offsetX = (cw - CANVAS_W * scale) * 0.5;
+    if (viewW < CANVAS_W - 4) {
+      const maxCam = CANVAS_W - viewW;
+      camX = Math.max(0, Math.min(maxCam, this.camX));
+      offsetX = -camX * scale;
+    }
+
+    const offsetY = (ch - CANVAS_H * scale) * 0.5;
+    return { scale, offsetX, offsetY, viewW, camX };
+  }
+
+  private updateCamera(dt: number): void {
+    const { viewW } = this.getViewportTransform();
+    const maxCam = Math.max(0, CANVAS_W - viewW);
+    if (maxCam <= 2) {
+      this.camX = 0;
+      return;
+    }
+
+    let targetCamX = 0;
+    if (this.phase === 'intro') {
+      targetCamX = maxCam * (0.5 - 0.5 * Math.cos(this.globalTime * 0.42));
+    } else if (this.gorillaDefeated) {
+      targetCamX = this.gorillaX - viewW * 0.5;
+    } else {
+      targetCamX = this.px + this.pFacing * 90 - viewW * 0.5;
+    }
+
+    targetCamX = Math.max(0, Math.min(maxCam, targetCamX));
+    this.camX += (targetCamX - this.camX) * Math.min(1, dt * 6.5);
+  }
+
   private renderScene(): void {
     const ctx = this.ctx;
     const cw = this.canvas.width;
     const ch = this.canvas.height;
 
     ctx.clearRect(0, 0, cw, ch);
-    ctx.fillStyle = '#070B14';
-    ctx.fillRect(0, 0, cw, ch);
 
-    // Uniformly scale 1280x720 virtual stage to fit viewport cleanly
-    const scale = Math.min(cw / CANVAS_W, ch / CANVAS_H);
-    const offsetX = (cw - CANVAS_W * scale) * 0.5;
-    const offsetY = (ch - CANVAS_H * scale) * 0.5;
+    const { scale, offsetX, offsetY, viewW, camX } = this.getViewportTransform();
+
+    // Seamless full-viewport night sky + street gradient (no dead black letterbox bars)
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, ch);
+    skyGrad.addColorStop(0, '#050914');
+    skyGrad.addColorStop(0.65, '#0B162C');
+    skyGrad.addColorStop(1, '#070B14');
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, cw, ch);
 
     ctx.save();
     let shakeX = 0;
@@ -1419,6 +1606,19 @@ export class GameEngine {
 
     ctx.translate(offsetX + shakeX * scale, offsetY + shakeY * scale);
     ctx.scale(scale, scale);
+
+    // Subtle upper sky stars & street apron when portrait screen is taller than virtual 720px
+    if (offsetY > 2) {
+      ctx.fillStyle = 'rgba(226, 232, 240, 0.38)';
+      const extraTop = Math.ceil(offsetY / scale) + 12;
+      for (let i = 0; i < 18; i++) {
+        const sx = ((i * 173) % (CANVAS_W - 60)) + 30;
+        const sy = -extraTop + ((i * 59) % Math.max(20, extraTop - 6));
+        ctx.fillRect(sx, sy, 2.2, 2.2);
+      }
+      ctx.fillStyle = '#090E1A';
+      ctx.fillRect(0, CANVAS_H, CANVAS_W, extraTop);
+    }
 
     // 1. Cached Buenos Aires Night Stage & Girders
     if (this.assets?.stageBackdrop) {
@@ -1435,6 +1635,38 @@ export class GameEngine {
       if (a.active) this.drawAvocado(ctx, a);
     }
     this.drawParticles(ctx);
+
+    // Subtle directional cue on Floor 4 if Blackri Kong is off-screen in portrait
+    if (this.phase === 'playing' && !this.gorillaDefeated && this.pLevel === 4) {
+      const badgeY = 104;
+      if (this.gorillaX > camX + viewW - 24) {
+        const badgeX = camX + viewW - 14;
+        ctx.save();
+        ctx.fillStyle = 'rgba(245, 158, 11, 0.92)';
+        ctx.beginPath();
+        ctx.roundRect(badgeX - 118, badgeY - 16, 118, 32, 8);
+        ctx.fill();
+        ctx.fillStyle = '#0F172A';
+        ctx.font = 'bold 17px "Barlow Condensed", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('BLACKRI KONG →', badgeX - 59, badgeY + 1);
+        ctx.restore();
+      } else if (this.gorillaX < camX + 24) {
+        const badgeX = camX + 14;
+        ctx.save();
+        ctx.fillStyle = 'rgba(245, 158, 11, 0.92)';
+        ctx.beginPath();
+        ctx.roundRect(badgeX, badgeY - 16, 118, 32, 8);
+        ctx.fill();
+        ctx.fillStyle = '#0F172A';
+        ctx.font = 'bold 17px "Barlow Condensed", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('← BLACKRI KONG', badgeX + 59, badgeY + 1);
+        ctx.restore();
+      }
+    }
 
     ctx.restore();
   }
@@ -1528,6 +1760,7 @@ export class GameEngine {
       this.updateParticles(dt);
     }
 
+    this.updateCamera(dt);
     this.renderScene();
     this.rafId = requestAnimationFrame(this.tick);
   };
@@ -1536,6 +1769,9 @@ export class GameEngine {
     this.disposed = true;
     cancelAnimationFrame(this.rafId);
     window.removeEventListener('resize', this.handleResize);
+    window.removeEventListener('orientationchange', this.handleResize);
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
     this.sound.dispose();
     if (this.canvas.parentNode === this.container) {
       this.container.removeChild(this.canvas);
